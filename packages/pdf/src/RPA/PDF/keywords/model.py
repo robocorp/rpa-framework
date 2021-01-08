@@ -373,10 +373,12 @@ class ModelKeywords(LibraryContext):
         :param source_pdf: source
         """
         if not source_pdf:
-            self.logger.warn(dir(self))
-            self.logger.warn(dir(self.ctx))
-            return
-        source_parser = PDFParser(self.active_fileobject)
+            # FIXME: handle this
+            pass
+            # self.logger.warn(dir(self))
+            # self.logger.warn(dir(self.ctx))
+            # return
+        source_parser = PDFParser(self.ctx.active_fileobject)
         source_document = PDFDocument(source_parser)
         source_pages = PDFPage.create_pages(source_document)
         rsrcmgr = PDFResourceManager()
@@ -390,7 +392,7 @@ class ModelKeywords(LibraryContext):
         # # Look at all (nested) objects on each page
         for _, page in enumerate(source_pages, 0):
             interpreter.process_page(page)
-        self.rpa_pdf_document = device.close()
+        self.ctx.rpa_pdf_document = device.close()
 
     @keyword
     def pdf_to_image(self, pdf_document: str = None, pages=None, target_file: str = ""):

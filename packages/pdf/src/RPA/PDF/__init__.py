@@ -55,6 +55,10 @@ class PDF(DynamicCore):
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.buffer = Buffer(self.logger)
+        self.active_fileobject = None
+        self.active_pdf = None
+        self.active_fields = None
+        self.fileobjects = {}
         self.rpa_pdf_document = None
 
         # Register keyword libraries to LibCore

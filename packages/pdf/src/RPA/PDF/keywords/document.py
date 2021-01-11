@@ -1,15 +1,22 @@
+from pathlib import Path
 from typing import Any
 
 import PyPDF2
+from fpdf import FPDF, HTMLMixin
 
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdftypes import resolve1
 
+from RPA.core.helpers import required_param
+from RPA.core.notebook import notebook_print
 from RPA.PDF.keywords import (
     LibraryContext,
     keyword,
 )
+
+class PDF(FPDF, HTMLMixin):
+    pass
 
 
 class DocumentKeywords(LibraryContext):
@@ -17,6 +24,24 @@ class DocumentKeywords(LibraryContext):
 
     def __init__(self, ctx):
         super().__init__(ctx)
+        self.fpdf = PDF()
+        self.output_directory = Path(".")  # TODO: make this a property with setter?
+
+    # def __del__(self):
+    #     self.close_all_pdf_documents()
+
+    # FIXME: doesn't work
+    def close_all_pdf_documents(self) -> None:
+        """Close all opened PDF file descriptors."""
+        for filename, fileobject in self.ctx.fileobjects.items():
+            fileobject.close()
+            self.logger.debug('PDF "%s" closed', filename)
+        self.ctx.anchor_element = None
+        self.ctx.fileobjects = {}
+        self.ctx.active_pdf = None
+        self.ctx.active_fileobject = None
+        self.ctx.active_fields = None
+        self.ctx.rpa_pdf_document = None
 
     def open_pdf_document(self, source_pdf: str = None) -> None:
         """Open PDF document.
@@ -39,19 +64,10 @@ class DocumentKeywords(LibraryContext):
         self.ctx.rpa_pdf_document = None
 
     @keyword
-    def add_pages(self, pages: int = 1) -> None:
-        """Adds pages into PDF documents.
-
-        :param pages: number of pages to add, defaults to 1
-        """
-        for _ in range(int(pages)):
-            self.add_page()
-
-    @keyword
     def html_to_pdf(
         self,
         content: str = None,
-        filename: str = None,
+        target_pdf: str = None,
         variables: dict = None,
         create_dirs: bool = True,
         exists_ok: bool = True,
@@ -59,13 +75,52 @@ class DocumentKeywords(LibraryContext):
         """Use HTML content to generate PDF file.
 
         :param content: HTML content
-        :param filename: filepath where to save PDF document
+        :param target_pdf: filepath where to save PDF document
         :param variables: dictionary of variables to fill into template, defaults to {}
         :param create_dirs: directory structure is created if it is missing,
          default `True`
         :param exists_ok: file is overwritten if it exists, default `True`
         """
-        pass
+        required_param([content, target_pdf], "html_to_pdf")
+        variables = variables or {}
+
+        html = content.encode("utf-8").decode("latin-1")
+        # html = content
+
+        for key, value in variables.items():
+            html = html.replace("{{" + key + "}}", str(value))
+
+        if target_pdf:
+            output_filepath = Path(target_pdf)
+        else:
+            output_filepath = Path(self.output_directory / "html2pdf.pdf")
+
+        self._write_html_to_pdf(html, output_filepath, create_dirs, exists_ok)
+
+    def _write_html_to_pdf(self, html, output_path, create_dirs, exists_ok):
+        # TODO: is this needed?
+        # if create_dirs:
+        #     Path(output_path).resolve().parent.mkdir(parents=True, exist_ok=True)
+        # if not exists_ok and Path(output_path).exists():
+        #     raise FileExistsError(output_path)
+        notebook_print(link=str(output_path))
+        self.add_pages(1)
+        self.fpdf.write_html(html)
+
+        pdf_content = self.fpdf.output(dest="S").encode("latin-1")
+        with open(output_path, "wb") as outfile:
+            outfile.write(pdf_content)
+        # self.__init__()  # TODO: what should happen here exactly?
+        self.fpdf = PDF()
+
+    @keyword
+    def add_pages(self, pages: int = 1) -> None:
+        """Adds pages into PDF documents.
+
+        :param pages: number of pages to add, defaults to 1
+        """
+        for _ in range(int(pages)):
+            self.fpdf.add_page()
 
     @keyword
     def get_info(self, source_pdf: str = None) -> dict:
@@ -169,3 +224,36 @@ class DocumentKeywords(LibraryContext):
                     else:
                         pdf_text[idx] = item.text
         return pdf_text
+
+    @keyword
+    def extract_pages_from_pdf(
+        self, source_pdf: str = None, target_pdf: str = None, pages: Any = None
+    ) -> None:
+        """Extract pages from source PDF and save to target PDF document.
+
+        Page numbers start from 1.
+
+        :param source_pdf: filepath to the source pdf
+        :param target_pdf: filepath to the target pdf, stored by default
+            in `output_directory`
+        :param pages: page numbers to extract from PDF (numbers start from 0)
+            if None then extracts all pages
+        """
+        self.switch_to_pdf_document(source_pdf)
+        reader = PyPDF2.PdfFileReader(self.ctx.active_fileobject)
+        writer = PyPDF2.PdfFileWriter()
+
+        if target_pdf:
+            output_filepath = Path(target_pdf)
+        else:
+            output_filepath = Path(self.output_directory / "extracted.pdf")
+
+        if pages and not isinstance(pages, list):
+            pages = pages.split(",")
+        elif pages is None:
+            pages = range(reader.getNumPages())
+        pages = list(map(int, pages))
+        for pagenum in pages:
+            writer.addPage(reader.getPage(int(pagenum) - 1))
+        with open(str(output_filepath), "wb") as f:
+            writer.write(f)

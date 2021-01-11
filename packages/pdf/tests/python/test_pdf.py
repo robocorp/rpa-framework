@@ -11,20 +11,6 @@ def library():
     return PDF()
 
 
-#
-# def test_get_text_from_all_pages(library):
-#     text = library.get_text_from_pdf(loremipsum_pdf)
-#     assert len(text) == 1, "text should be parsed from 1 pages"
-#     assert len(text[1]) == 3622
-#     text = library.get_text_from_pdf(vero_pdf)
-#     assert len(text) == 2, "text should be parsed from 2 pages"
-#     assert "Muualle lomakkeeseen kirjoittamaasi tietoa ei käsitellä." in text[2]
-
-
-# def test_get_text_from_specific_page(library):
-#     text = library.get_text_from_pdf(pytest_pdf, pages=[7])
-#     assert "Plugins for Web Development" in text[7]
-
 
 # def test_set_anchor_to_element(library):
 #     library.open_pdf_document(invoice_pdf)
@@ -66,13 +52,7 @@ def library():
 #     assert item.text == "Sub Total"
 
 
-# def test_extract_pages_from_pdf(library):
-#     pages = [7, 8]
-#     target_pdf = TEMP_DIR / "extracted.pdf"
-#     library.extract_pages_from_pdf(pytest_pdf, target_pdf, pages)
-#     assert library.get_number_of_pages(target_pdf) == 2
-#     text = library.get_text_from_pdf(target_pdf)
-#     assert "Plugins for Web Development" in text[1]
+
 
 
 # def test_rotating(library):

@@ -1,8 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 
 RESOURCE_DIR = Path(__file__).resolve().parent / ".." / "resources"
-TEMP_DIR = Path(__file__).resolve().parent / ".." / "temp"
 
 
 class TestFiles:

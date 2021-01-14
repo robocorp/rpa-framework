@@ -1,8 +1,9 @@
 import re
 import sys
+from collections import OrderedDict
 from typing import Any, Iterable
 
-from collections import OrderedDict
+import pdfminer
 from pdfminer.converter import PDFConverter
 from pdfminer.layout import (
     LAParams,
@@ -21,8 +22,6 @@ from pdfminer.layout import (
 )
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
-from pdfminer.pdfpage import PDFPage
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.utils import enc, bbox2str
 
 
@@ -32,7 +31,7 @@ from RPA.PDF.keywords import (
 )
 
 
-def iterable_items_to_int(bbox):
+def iterable_items_to_int(bbox) -> list:
     if bbox is None:
         return list()
     return list(map(int, bbox))
@@ -372,22 +371,23 @@ class ModelKeywords(LibraryContext):
 
         :param source_pdf: source
         """
-        if not source_pdf:
-            # FIXME: handle this
-            pass
+        # if not source_pdf:
+            # FIXME: why is this here?
             # self.logger.warn(dir(self))
             # self.logger.warn(dir(self.ctx))
             # return
+        if source_pdf:
+            self.switch_to_pdf_document(source_pdf)
         source_parser = PDFParser(self.ctx.active_fileobject)
         source_document = PDFDocument(source_parser)
-        source_pages = PDFPage.create_pages(source_document)
-        rsrcmgr = PDFResourceManager()
-        laparams = LAParams(
+        source_pages = pdfminer.pdfpage.PDFPage.create_pages(source_document)
+        rsrcmgr = pdfminer.pdfinterp.PDFResourceManager()
+        laparams = pdfminer.layout.LAParams(
             detect_vertical=True,
             all_texts=True,
         )
-        device = RPAConverter(rsrcmgr, laparams=laparams)
-        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        device = pdfminer.converter.RPAConverter(rsrcmgr, laparams=laparams)
+        interpreter = pdfminer.pdfinterp.PDFPageInterpreter(rsrcmgr, device)
 
         # # Look at all (nested) objects on each page
         for _, page in enumerate(source_pages, 0):
@@ -396,4 +396,7 @@ class ModelKeywords(LibraryContext):
 
     @keyword
     def pdf_to_image(self, pdf_document: str = None, pages=None, target_file: str = ""):
+        # TODO: do it
         pass
+
+    

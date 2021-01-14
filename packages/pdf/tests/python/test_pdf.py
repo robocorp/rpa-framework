@@ -55,12 +55,6 @@ def library():
 
 
 
-# def test_rotating(library):
-#     target_pdf = TEMP_DIR / "rotated.pdf"
-#     library.page_rotate(1, vero_pdf, target_pdf)
-#     # TODO. Assert
-
-
 # def test_get_pdf_xml_dump(library):
 #     library.open_pdf_document(invoice_pdf)
 #     xml = library.dump_pdf_as_xml()

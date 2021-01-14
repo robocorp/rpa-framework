@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+import PyPDF2
 import pytest
 
 from RPA.PDF import PDF
@@ -17,20 +18,29 @@ def library():
     return PDF()
 
 
-def test_get_number_of_pages(library):
-    assert library.get_number_of_pages(TestFiles.invoice_pdf) == 1
-    assert library.get_number_of_pages(TestFiles.vero_pdf) == 2
-    assert library.get_number_of_pages(TestFiles.pytest_pdf) == 9
+@pytest.mark.parametrize("file, number_of_pages", [
+    (TestFiles.invoice_pdf, 1),
+    (TestFiles.vero_pdf, 2),
+    (TestFiles.pytest_pdf, 9),
+])
+def test_get_number_of_pages(library, file, number_of_pages):
+    assert library.get_number_of_pages(file) == number_of_pages
 
 
-def test_get_info(library):
-    info = library.get_info(TestFiles.pytest_pdf)
-    assert info["Pages"] == 9
-    assert not info["Encrypted"]
-    assert not info["Fields"]
-    info = library.get_info(TestFiles.vero_pdf)
-    assert info["Fields"]
-    assert info["Pages"] == 2
+@pytest.mark.parametrize("file, pages, encrypted, fields", [
+    (TestFiles.pytest_pdf, 9, False, False),
+    (TestFiles.vero_pdf, 2, False, True),
+])
+def test_get_info(library, file, pages, encrypted, fields):
+    info = library.get_info(file)
+
+    assert info["Pages"] == pages
+    assert info["Encrypted"] == encrypted
+    assert info["Fields"] == fields
+
+
+def test_is_pdf_encrypted(library):
+    assert not library.is_pdf_encrypted(TestFiles.vero_pdf)
 
 
 def test_get_text_from_pdf_all_pages(library):
@@ -59,10 +69,6 @@ def test_extract_pages_from_pdf(library):
         assert "Plugins for Web Development" in text[1]
 
 
-def test_add_pages(library):
-    # library.add_pages()
-    pass
-
 def test_html_to_pdf(library):
     text = "let's do some testing ÄÄ"
     html = f"<html> <body> {text} </body></html>"
@@ -72,3 +78,42 @@ def test_html_to_pdf(library):
         result = library.get_text_from_pdf(target_pdf)
 
         assert text in result[1]
+
+
+def test_page_rotate(library):
+    def get_source_page(pdf_file, page_num):
+        reader = PyPDF2.PdfFileReader(pdf_file)
+        return reader.getPage(int(page_num))
+
+    page_to_rotate = 1
+    page_before_rotation = get_source_page(str(TestFiles.vero_pdf), page_to_rotate)
+
+    assert page_before_rotation["/Rotate"] == 0
+
+    with tempfile.NamedTemporaryFile() as tmp_file:
+        library.page_rotate(page_to_rotate, TestFiles.vero_pdf, tmp_file.name)
+        page_after_rotation = get_source_page(tmp_file.name, page_to_rotate)
+
+        assert page_after_rotation["/Rotate"] == 90
+
+
+def test_pdf_encrypt(library):
+    with tempfile.NamedTemporaryFile() as tmp_file:
+        library.pdf_encrypt(TestFiles.vero_pdf, tmp_file.name)
+
+        assert not library.is_pdf_encrypted(TestFiles.vero_pdf)
+        assert library.is_pdf_encrypted(tmp_file.name)
+
+
+def test_pdf_decrypt(library):
+    passw = "secrett"
+
+    with tempfile.NamedTemporaryFile() as tmp_file:
+        library.pdf_encrypt(TestFiles.vero_pdf, tmp_file.name, passw)
+
+        assert library.is_pdf_encrypted(tmp_file.name)
+
+        with tempfile.NamedTemporaryFile() as another_file:
+            library.pdf_decrypt(tmp_file.name, another_file.name, passw)
+
+            assert not library.is_pdf_encrypted(another_file.name)
